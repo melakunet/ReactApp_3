@@ -42,7 +42,15 @@ export async function getTasks(): Promise<Task[]> {
     const result = await client.execute(
       'SELECT * FROM tasks ORDER BY created_at DESC',
     );
-    return result.rows as unknown as Task[];
+    // Map to plain objects so Next.js can safely pass them to Client Components.
+    // libSQL rows carry internal methods that React's serialization rejects.
+    return result.rows.map((row) => ({
+      id: row.id as number,
+      title: row.title as string,
+      description: row.description as string | null,
+      completed: row.completed as number,
+      created_at: row.created_at as string,
+    })) as Task[];
   } finally {
     client.close();
   }
