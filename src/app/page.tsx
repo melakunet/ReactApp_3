@@ -3,20 +3,9 @@ import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import styles from './page.module.css';
 
-/**
- * Home page – runs entirely on the server.
- *
- * Because this is a Next.js Server Component, the database
- * call happens before any HTML is sent to the browser.
- * The resulting task array is passed straight to TaskList
- * as a prop, so no client-side fetch is needed for the
- * initial page load.
- */
+// Server Component – data is fetched here before the page is sent to the browser.
 export default async function Home() {
-  // Create the tasks table on first run if it doesn't exist yet.
-  // Safe to call on every request – uses CREATE TABLE IF NOT EXISTS.
-  await initDb();
-
+  await initDb(); // create the table on first run if needed
   const tasks = await getTasks();
 
   return (

@@ -1,36 +1,24 @@
-// 'use server' makes every export in this file a Server Action.
-// These helpers are called from other Server Actions (addTask, markComplete,
-// removeTask) – never directly from client components.
 'use server';
 
 import { createClient, type Client } from '@libsql/client';
 import path from 'path';
 
-// Build an absolute path to the SQLite file so it works regardless of
-// the working directory Next.js chooses at runtime.
 const DB_PATH = path.resolve(process.cwd(), 'src/data/tasks.db');
 
-/** Open a short-lived libSQL connection to the local SQLite file. */
 function getClient(): Client {
   return createClient({ url: `file:${DB_PATH}` });
 }
 
-/**
- * Represents one row returned by the tasks table.
- * `completed` is stored as INTEGER (0/1) because SQLite has no boolean type.
- */
+// completed is stored as INTEGER (0/1) – SQLite has no boolean type.
 export type Task = {
   id: number;
   title: string;
   description: string | null;
-  completed: number; // 0 = not done, 1 = done
+  completed: number;
   created_at: string;
 };
 
-/**
- * Creates the tasks table the first time the app starts.
- * IF NOT EXISTS means this is safe to call on every request.
- */
+// Creates the tasks table on first run. Safe to call repeatedly – IF NOT EXISTS.
 export async function initDb(): Promise<void> {
   const client = getClient();
   try {
@@ -48,7 +36,6 @@ export async function initDb(): Promise<void> {
   }
 }
 
-/** Returns all tasks, newest first. */
 export async function getTasks(): Promise<Task[]> {
   const client = getClient();
   try {
@@ -61,11 +48,7 @@ export async function getTasks(): Promise<Task[]> {
   }
 }
 
-/** Inserts a new task row. description can be null if the user left it blank. */
-export async function insertTask(
-  title: string,
-  description: string | null,
-): Promise<void> {
+export async function insertTask(title: string, description: string | null): Promise<void> {
   const client = getClient();
   try {
     await client.execute({
@@ -77,10 +60,7 @@ export async function insertTask(
   }
 }
 
-/**
- * Flips completed between 0 and 1.
- * Using a CASE expression in SQL avoids a separate SELECT before the UPDATE.
- */
+// CASE expression flips 0→1 or 1→0 in a single UPDATE, no separate SELECT needed.
 export async function toggleTask(id: number): Promise<void> {
   const client = getClient();
   try {
@@ -93,14 +73,10 @@ export async function toggleTask(id: number): Promise<void> {
   }
 }
 
-/** Permanently removes a task row. The UI optimistically hides it via revalidatePath. */
 export async function deleteTask(id: number): Promise<void> {
   const client = getClient();
   try {
-    await client.execute({
-      sql: 'DELETE FROM tasks WHERE id = ?',
-      args: [id],
-    });
+    await client.execute({ sql: 'DELETE FROM tasks WHERE id = ?', args: [id] });
   } finally {
     client.close();
   }

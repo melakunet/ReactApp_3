@@ -10,38 +10,18 @@ type TaskItemProps = {
   task: Task;
 };
 
-/**
- * TaskItem – one row in the task list.
- *
- * This is a Client Component because it responds to user
- * interactions (checkbox change, delete click). The actual
- * data mutations happen in Server Actions (markComplete,
- * removeTask), which run on the server and then trigger a
- * Next.js cache revalidation so the list refreshes without
- * a full page reload.
- *
- * startTransition wraps each Server Action call so React
- * can keep the UI interactive while the request is pending.
- */
+// Client Component – handles checkbox and delete button interactions.
 export function TaskItem({ task }: TaskItemProps) {
   function handleToggle() {
-    startTransition(() => {
-      markComplete(task.id);
-    });
+    startTransition(() => { markComplete(task.id); });
   }
 
   function handleDelete() {
-    startTransition(() => {
-      removeTask(task.id);
-    });
+    startTransition(() => { removeTask(task.id); });
   }
 
   return (
     <li className={`${styles.item} ${task.completed ? styles.completed : ''}`}>
-      {/*
-        Checkbox is tied to the task id so its <label> below
-        can use htmlFor to stay accessible.
-      */}
       <input
         type="checkbox"
         id={`task-${task.id}`}
@@ -54,7 +34,7 @@ export function TaskItem({ task }: TaskItemProps) {
         <label htmlFor={`task-${task.id}`} className={styles.title}>
           {task.title}
         </label>
-        {/* description is optional – only render if it was provided */}
+        {/* description is optional */}
         {task.description && (
           <p className={styles.description}>{task.description}</p>
         )}

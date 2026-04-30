@@ -5,18 +5,13 @@ import { taskSchema } from './schema';
 import { insertTask } from './tasks';
 import { z } from 'zod';
 
-/** Field-level errors returned to the form when Zod validation fails. */
 type FieldErrors = {
   title: { message: string } | null;
   description: { message: string } | null;
 };
 
-/**
- * The state object passed between useActionState and this action.
- * `ok` tells the form whether the last submission succeeded.
- * `formData` carries the submitted values back so the form can
- * re-populate fields after a server-side validation error.
- */
+// State shared between useActionState and this action.
+// formData carries submitted values back so the form can repopulate on error.
 export type AddTaskState = {
   ok: boolean;
   error: string;
@@ -24,17 +19,8 @@ export type AddTaskState = {
   formData: FormData;
 };
 
-/**
- * addTask – Server Action called by TaskForm on every submission.
- *
- * The same Zod schema used on the client is run here again on the
- * server. This "double validation" means even if someone bypasses
- * the browser form, invalid data is rejected before it reaches
- * the database.
- *
- * On success, revalidatePath('/') tells Next.js to rebuild the
- * cached home page so the new task appears without a manual reload.
- */
+// Server Action – validates with Zod then writes to the database.
+// revalidatePath triggers a re-render of the task list after a successful insert.
 export async function addTask(
   previousState: AddTaskState,
   formData: FormData,
@@ -42,8 +28,6 @@ export async function addTask(
   const parsedResult = taskSchema.safeParse(Object.fromEntries(formData));
 
   if (!parsedResult.success) {
-    // Send validation errors back to the form so each field can show
-    // its own inline message.
     return {
       ok: false,
       error: 'Unable to save – please fix the errors below',
@@ -57,8 +41,7 @@ export async function addTask(
   try {
     await insertTask(title, description ?? null);
   } catch {
-    // Catch any unexpected database error and surface a generic message.
-    // We don't expose raw DB errors to the client for security.
+    // Don't expose raw database errors to the client.
     return {
       ok: false,
       error: 'A server error occurred. Please try again.',
@@ -67,8 +50,6 @@ export async function addTask(
     };
   }
 
-  // Invalidate the cached home page so Next.js re-fetches and re-renders
-  // the updated task list on the next request.
   revalidatePath('/');
 
   return {
@@ -79,10 +60,6 @@ export async function addTask(
   };
 }
 
-/**
- * Converts a ZodError (which can have many formats) into the flat
- * FieldErrors shape expected by the form.
- */
 function formatZodErrors(error: z.ZodError): FieldErrors {
   const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>;
   return {
