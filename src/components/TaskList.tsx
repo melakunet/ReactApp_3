@@ -1,21 +1,20 @@
-// TaskList component – server component
-// Renders the list of tasks fetched from the database.
 import type { Task } from '@/data/tasks';
 import { TaskItem } from './TaskItem';
 import styles from './TaskList.module.css';
 
-/** Props for TaskList */
 type TaskListProps = {
   tasks: Task[];
 };
 
 /**
- * TaskList renders the full list of tasks.
- * If no tasks exist it shows a friendly empty state.
- * Each task is rendered by the TaskItem client component.
+ * TaskList – renders the full collection of tasks.
+ *
+ * This is a Server Component: it receives the task array
+ * as a prop (already fetched in page.tsx) and renders it
+ * as static HTML. Each row is handed off to TaskItem,
+ * which is a Client Component that handles user interactions.
  */
 export function TaskList({ tasks }: TaskListProps) {
-  // Empty state – shown when there are no tasks yet
   if (tasks.length === 0) {
     return (
       <section className={styles.container}>
@@ -31,8 +30,8 @@ export function TaskList({ tasks }: TaskListProps) {
     <section className={styles.container}>
       <h2>Your Tasks ({tasks.length})</h2>
       <ul className={styles.list}>
-        {/* Render each task as a TaskItem */}
         {tasks.map((task) => (
+          // key must be unique per item so React can track additions/removals
           <TaskItem key={task.id} task={task} />
         ))}
       </ul>

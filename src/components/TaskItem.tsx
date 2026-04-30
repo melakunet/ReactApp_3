@@ -1,5 +1,3 @@
-// TaskItem component – client component
-// Displays a single task with a complete toggle and a delete button.
 'use client';
 
 import { startTransition } from 'react';
@@ -8,31 +6,30 @@ import { removeTask } from '@/data/removeTask';
 import type { Task } from '@/data/tasks';
 import styles from './TaskItem.module.css';
 
-/** Props for TaskItem */
 type TaskItemProps = {
   task: Task;
 };
 
 /**
- * TaskItem renders one row in the task list.
- * - Checkbox: marks the task complete/incomplete (calls markComplete server action)
- * - Delete button: removes the task (calls removeTask server action)
+ * TaskItem – one row in the task list.
+ *
+ * This is a Client Component because it responds to user
+ * interactions (checkbox change, delete click). The actual
+ * data mutations happen in Server Actions (markComplete,
+ * removeTask), which run on the server and then trigger a
+ * Next.js cache revalidation so the list refreshes without
+ * a full page reload.
+ *
+ * startTransition wraps each Server Action call so React
+ * can keep the UI interactive while the request is pending.
  */
 export function TaskItem({ task }: TaskItemProps) {
-  /**
-   * Handle the complete checkbox change.
-   * Wraps the server action in startTransition for smooth UI updates.
-   */
   function handleToggle() {
     startTransition(() => {
       markComplete(task.id);
     });
   }
 
-  /**
-   * Handle the delete button click.
-   * Wraps the server action in startTransition.
-   */
   function handleDelete() {
     startTransition(() => {
       removeTask(task.id);
@@ -41,7 +38,10 @@ export function TaskItem({ task }: TaskItemProps) {
 
   return (
     <li className={`${styles.item} ${task.completed ? styles.completed : ''}`}>
-      {/* Complete toggle */}
+      {/*
+        Checkbox is tied to the task id so its <label> below
+        can use htmlFor to stay accessible.
+      */}
       <input
         type="checkbox"
         id={`task-${task.id}`}
@@ -50,11 +50,11 @@ export function TaskItem({ task }: TaskItemProps) {
         aria-label={`Mark "${task.title}" as ${task.completed ? 'incomplete' : 'complete'}`}
       />
 
-      {/* Task details */}
       <div className={styles.details}>
         <label htmlFor={`task-${task.id}`} className={styles.title}>
           {task.title}
         </label>
+        {/* description is optional – only render if it was provided */}
         {task.description && (
           <p className={styles.description}>{task.description}</p>
         )}
@@ -63,7 +63,6 @@ export function TaskItem({ task }: TaskItemProps) {
         </span>
       </div>
 
-      {/* Delete button */}
       <button
         type="button"
         onClick={handleDelete}

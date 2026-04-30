@@ -1,20 +1,22 @@
-// Home page – server component
-// Fetches all tasks from the database and renders the TaskForm + TaskList.
 import { initDb, getTasks } from '@/data/tasks';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskList } from '@/components/TaskList';
 import styles from './page.module.css';
 
 /**
- * Home is a Next.js Server Component.
- * It initialises the DB on first load, fetches all tasks,
- * then passes them to the TaskList for rendering.
+ * Home page – runs entirely on the server.
+ *
+ * Because this is a Next.js Server Component, the database
+ * call happens before any HTML is sent to the browser.
+ * The resulting task array is passed straight to TaskList
+ * as a prop, so no client-side fetch is needed for the
+ * initial page load.
  */
 export default async function Home() {
-  // Ensure the tasks table exists before querying
+  // Create the tasks table on first run if it doesn't exist yet.
+  // Safe to call on every request – uses CREATE TABLE IF NOT EXISTS.
   await initDb();
 
-  // Fetch all tasks from the SQLite database (server-side)
   const tasks = await getTasks();
 
   return (
@@ -23,11 +25,7 @@ export default async function Home() {
       <p className={styles.subtitle}>
         Keep track of your tasks – add, complete, and delete them below.
       </p>
-
-      {/* Form to add a new task */}
       <TaskForm />
-
-      {/* List of existing tasks */}
       <TaskList tasks={tasks} />
     </main>
   );

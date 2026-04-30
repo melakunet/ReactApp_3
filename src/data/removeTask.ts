@@ -1,16 +1,18 @@
-// Server Action: removeTask
-// Deletes a task from the database by its id.
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { deleteTask } from './tasks';
 
 /**
- * Called from TaskItem when the user clicks the Delete button.
- * @param id - The numeric id of the task to delete.
+ * removeTask – Server Action triggered when the user clicks
+ * the Delete button in TaskItem.
+ *
+ * After the row is deleted from the database, revalidatePath
+ * invalidates the Next.js cache for the home page so the task
+ * disappears from the list on the next render without a full
+ * browser reload.
  */
 export async function removeTask(id: number): Promise<void> {
   await deleteTask(id);
-  // Revalidate the home page so the task is removed from the list
   revalidatePath('/');
 }

@@ -1,6 +1,3 @@
-// TaskForm component – client component
-// Handles adding a new task using react-hook-form + Zod + useActionState.
-// Mirrors the instructor's ContactForm.tsx pattern exactly.
 'use client';
 
 import { useActionState, startTransition, useRef } from 'react';
@@ -10,7 +7,7 @@ import { taskSchema, type TaskFormValues } from '@/data/schema';
 import { addTask, type AddTaskState } from '@/data/addTask';
 import styles from './TaskForm.module.css';
 
-/** Initial state passed to useActionState */
+// The initial value useActionState needs before the first submission.
 const initialState: AddTaskState = {
   ok: false,
   error: '',
@@ -19,15 +16,22 @@ const initialState: AddTaskState = {
 };
 
 /**
- * TaskForm – renders the "Add a Task" form.
- * Uses useActionState (React 19) + react-hook-form for dual client/server validation.
+ * TaskForm – the "Add a New Task" form.
+ *
+ * Validation runs twice:
+ *   1. Client side – react-hook-form + Zod catches errors instantly
+ *      without a network round-trip.
+ *   2. Server side – the addTask Server Action re-validates with the
+ *      same Zod schema, so bad data can never reach the database.
+ *
+ * useActionState (React 19) connects the Server Action to the
+ * component's state and gives us `isPending` for free, so we can
+ * disable the submit button while the request is in flight.
  */
 export function TaskForm() {
-  // useActionState wires the server action to React's transition system
   const [{ ok, error, errors, formData }, formAction, isPending] =
     useActionState(addTask, initialState);
 
-  // react-hook-form provides client-side validation via Zod resolver
   const {
     handleSubmit,
     register,
@@ -35,28 +39,31 @@ export function TaskForm() {
     formState: { errors: clientErrors },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
+    // Re-populate fields with the last submitted values if the server
+    // returns a validation error, so the user doesn't lose their input.
     defaultValues: {
       title: (formData.get('title') as string) ?? '',
       description: (formData.get('description') as string) ?? '',
     },
   });
 
-  // Ref to the <form> element so we can pass its FormData to the server action
   const formRef = useRef<HTMLFormElement>(null);
 
   /**
-   * onSubmit – called by react-hook-form after client validation passes.
-   * Builds FormData from validated values and dispatches the server action.
+   * Called by react-hook-form only after client-side Zod validation passes.
+   * We build FormData manually here instead of reading formRef.current
+   * inside the JSX, because reading a ref during render is not allowed
+   * in React 19's strict mode.
+   * startTransition marks the Server Action dispatch as a non-urgent
+   * update so the UI stays responsive while the request is in flight.
    */
   function onSubmit(values: TaskFormValues) {
-    // Build FormData manually from validated values — avoids ref access during render
     const fd = new FormData();
     fd.append('title', values.title);
     if (values.description) fd.append('description', values.description);
     startTransition(() => {
       formAction(fd);
     });
-    // Clear the form fields after dispatching
     reset();
   }
 
@@ -69,7 +76,6 @@ export function TaskForm() {
     >
       <h2 className={styles.heading}>Add a New Task</h2>
 
-      {/* Title field */}
       <div className={styles.field}>
         <label htmlFor="title">Task title</label>
         <input
@@ -77,14 +83,13 @@ export function TaskForm() {
           id="title"
           placeholder="e.g. Buy groceries"
           defaultValue={(formData.get('title') as string) ?? ''}
-          aria-invalid={
-            clientErrors.title ?? errors.title ? 'true' : 'false'
-          }
+          // aria-invalid lets screen readers announce the field as invalid
+          aria-invalid={clientErrors.title ?? errors.title ? 'true' : 'false'}
           aria-describedby="title-error"
           aria-required="true"
           {...register('title')}
         />
-        {/* Show client-side error first, fall back to server error */}
+        {/* Prefer the client error (instant) over the server error (after round-trip) */}
         <FieldError
           clientError={clientErrors.title}
           serverError={errors.title}
@@ -92,7 +97,6 @@ export function TaskForm() {
         />
       </div>
 
-      {/* Description field (optional) */}
       <div className={styles.field}>
         <label htmlFor="description">Description (optional)</label>
         <textarea
@@ -103,21 +107,19 @@ export function TaskForm() {
         />
       </div>
 
-      {/* Server-level error (e.g. DB failure) */}
+      {/* Only shown when the Server Action itself fails (e.g. database error) */}
       {!ok && error && (
         <p role="alert" className={styles.error}>
           {error}
         </p>
       )}
 
-      {/* Success feedback */}
       {ok && (
         <p role="status" className={styles.success}>
           Task added successfully!
         </p>
       )}
 
-      {/* Pending indicator while the server action runs */}
       {isPending && <p role="status">Saving…</p>}
 
       <button type="submit" disabled={isPending} className={styles.button}>
@@ -127,14 +129,15 @@ export function TaskForm() {
   );
 }
 
-// ── FieldError helper ─────────────────────────────────────────────────────────
+// ── FieldError ────────────────────────────────────────────────────────────────
 
-/** Type for a single Zod / RHF field error */
 type Err = { message?: string } | undefined | null;
 
 /**
- * Renders an accessible error message for a single field.
- * Prefers the client-side error; falls back to the server-side error.
+ * Renders an accessible inline error for one form field.
+ * The client error (from react-hook-form) is shown first because it's
+ * available immediately. The server error is only used as a fallback
+ * when the server action catches something the client didn't.
  */
 function FieldError({
   clientError,
@@ -147,7 +150,6 @@ function FieldError({
 }) {
   const fieldError = clientError ?? serverError;
   if (!fieldError) return null;
-
   return (
     <div id={errorId} role="alert" className="field-error">
       {fieldError.message}

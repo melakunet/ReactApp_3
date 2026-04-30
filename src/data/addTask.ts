@@ -1,6 +1,3 @@
-// Server Action: addTask
-// Validates the submitted form data using Zod, then inserts a new task into the DB.
-// Follows the same pattern as the instructor's insertContact.ts.
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -8,13 +5,18 @@ import { taskSchema } from './schema';
 import { insertTask } from './tasks';
 import { z } from 'zod';
 
-/** Shape of field-level validation errors returned to the form */
+/** Field-level errors returned to the form when Zod validation fails. */
 type FieldErrors = {
   title: { message: string } | null;
   description: { message: string } | null;
 };
 
-/** State shape used by useActionState in TaskForm */
+/**
+ * The state object passed between useActionState and this action.
+ * `ok` tells the form whether the last submission succeeded.
+ * `formData` carries the submitted values back so the form can
+ * re-populate fields after a server-side validation error.
+ */
 export type AddTaskState = {
   ok: boolean;
   error: string;
@@ -23,20 +25,25 @@ export type AddTaskState = {
 };
 
 /**
- * Server Action called by TaskForm via useActionState.
- * Validates with Zod, inserts into SQLite, and revalidates the page cache.
+ * addTask – Server Action called by TaskForm on every submission.
+ *
+ * The same Zod schema used on the client is run here again on the
+ * server. This "double validation" means even if someone bypasses
+ * the browser form, invalid data is rejected before it reaches
+ * the database.
+ *
+ * On success, revalidatePath('/') tells Next.js to rebuild the
+ * cached home page so the new task appears without a manual reload.
  */
 export async function addTask(
   previousState: AddTaskState,
   formData: FormData,
 ): Promise<AddTaskState> {
-  // Parse and validate form fields with Zod schema
-  const parsedResult = taskSchema.safeParse(
-    Object.fromEntries(formData),
-  );
+  const parsedResult = taskSchema.safeParse(Object.fromEntries(formData));
 
-  // Return validation errors to the client if parsing fails
   if (!parsedResult.success) {
+    // Send validation errors back to the form so each field can show
+    // its own inline message.
     return {
       ok: false,
       error: 'Unable to save – please fix the errors below',
@@ -48,10 +55,10 @@ export async function addTask(
   const { title, description } = parsedResult.data;
 
   try {
-    // Insert the validated task into the database
     await insertTask(title, description ?? null);
   } catch {
-    // Return a generic server error if the DB write fails
+    // Catch any unexpected database error and surface a generic message.
+    // We don't expose raw DB errors to the client for security.
     return {
       ok: false,
       error: 'A server error occurred. Please try again.',
@@ -60,7 +67,8 @@ export async function addTask(
     };
   }
 
-  // Revalidate the home page so the task list refreshes
+  // Invalidate the cached home page so Next.js re-fetches and re-renders
+  // the updated task list on the next request.
   revalidatePath('/');
 
   return {
@@ -71,15 +79,14 @@ export async function addTask(
   };
 }
 
-/** Helper: map a ZodError into the FieldErrors shape */
+/**
+ * Converts a ZodError (which can have many formats) into the flat
+ * FieldErrors shape expected by the form.
+ */
 function formatZodErrors(error: z.ZodError): FieldErrors {
   const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>;
   return {
-    title: fieldErrors['title']
-      ? { message: fieldErrors['title']![0] }
-      : null,
-    description: fieldErrors['description']
-      ? { message: fieldErrors['description']![0] }
-      : null,
+    title: fieldErrors['title'] ? { message: fieldErrors['title']![0] } : null,
+    description: fieldErrors['description'] ? { message: fieldErrors['description']![0] } : null,
   };
 }
