@@ -1,0 +1,27 @@
+/* TaskList.module.css – styles for the task list section */
+
+.container {
+  max-width: 600px;
+}
+
+.container h2 {
+  font-size: 1.25rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+/* Stacked list of TaskItem rows */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* Empty state message */
+.empty {
+  color: #888;
+  font-style: italic;
+}
